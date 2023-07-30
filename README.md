@@ -7,15 +7,13 @@ $ ./osk.sh "command -x"
 ```
 ## Options
 
-### short
-`-s` (default)
+### short `-s` (default)
 
 Seeks the specified option using the `--help` or `-h` option of the argument command.
 
 ![image](https://github.com/m3f1s7o/osk/assets/65306021/a655be3f-4092-4b8e-964d-7afc69f55e38)
 
-### long
-`-l`
+### long `-l`
 
 Seeks the specified option in the `man page` of the argument command.
 
