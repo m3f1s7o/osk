@@ -1,0 +1,100 @@
+#! /bin/bash
+
+usage () {
+	echo "Usage: $(basename $0) [-lsh] 'command -x'" 2>&1
+	echo "Seek information about command options"
+	echo
+	echo " -l long answer"
+	echo " -s short answer (default)"
+	echo " -h display this message"
+}
+
+if [[ ${#} -eq 0 ]]; then
+	usage
+	exit 1
+fi
+
+optstring=":lsh"
+LONG='false'
+
+while getopts ${optstring} arg; do
+	case ${arg} in
+		l)
+			LONG='true'
+			;;
+		s) 
+			LONG='false'
+			;;
+		h)
+			usage
+			exit 0
+			;;
+		?)
+			echo "Invalid option: -${OPTARG}."
+			echo
+			usage
+			exit 1
+			;;
+	esac
+done
+
+shift $((OPTIND - 1))  # ${@} contains the non-option arg
+
+read -ra seek <<< $1
+commnd=${seek[0]}
+opts=$(sed "s/-//g" <<< ${seek[1]})
+#echo "command: $commnd, options: $opts"
+
+# gets the option description
+seek () {
+	if [[ $1 == "man" ]]; then
+		# gets the names of the section in which options are described
+		man $commnd | grep -P "^OPTIONS$" &>/dev/null
+		if [[ $? -eq 0 ]]; then
+			begin="OPTIONS"
+		else
+			begin="DESCRIPTION"
+		fi
+
+		read -ra bounds <<< $(man $commnd | grep -P "^[A-Z]+$" | grep $begin -A 1 | xargs)
+		#echo "bounds: ${bounds[0]} - ${bounds[1]}"
+
+		# gets the options between the option is
+		between=$(man $commnd | awk "/^${bounds[0]}$/,/^${bounds[1]}$/" | grep -P "^[ ]+--?[A-Za-z]+" | grep -P "^[ ]+\-$opts" -A 1)
+		#echo "between: $between"
+		o_bounds=()
+		while IFS= read -r line; do
+			o_bounds+=("$line")
+		done <<< "$between"
+		#echo "options bounds: ${o_bounds[0]} -> ${o_bounds[1]}"
+		men=$(man $commnd | awk "/^${o_bounds[0]}/,/^${o_bounds[1]}/" | head -n -1)
+
+		#men=$(man $commnd | grep -Pzo -Pzo "(?s)[ ]+\-$o.*?\.\n")
+		printf "%s" "$men"
+		echo
+
+	elif [[ $1 == "help" ]]; then
+		halp=$($commnd --help 2>/dev/null | grep -P "^[ ]+-$opts" | xargs)
+		echo $halp
+	else
+		h=$($commnd -h 2>/dev/null | grep -P "^[ ]+-$opts" | xargs)
+		echo $h
+	fi
+}
+
+if [[ $LONG == "true" ]]; then
+	seek "man"
+else
+	halp=$(seek "help")
+	if [[ -z $halp ]]; then
+		h=$(seek "h")
+		if [[ -z $h ]]; then
+			echo "No information available"
+		else
+			echo $h
+		fi
+	else
+		echo $halp
+	fi
+fi
+
