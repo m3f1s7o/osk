@@ -1,0 +1,10 @@
+#! /bin/bash
+
+chmod +x osk
+
+if [[ $(whoami) == "root" ]]; then
+	echo whoami
+	sudo cp osk /usr/local/sbin
+else
+	cp osk $HOME/.local/bin
+fi
