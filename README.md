@@ -1,9 +1,18 @@
 # Option Seeker (osk)
 Bash tool to seek information about commands options. It searches the `man pages` or the `--help` output for the specified option.
 
+## Install
+```shell-session
+$ cd
+$ git clone https://github.com/m3f1s7o/osk
+$ cd osk
+$ chmod +x install
+$ ./install
+```
+
 ## Usage
 ```shell-session
-$ ./osk.sh "command -x"
+$ osk "command -x"
 ```
 ## Options
 
