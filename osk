@@ -71,7 +71,6 @@ seek () {
 
 		#men=$(man $commnd | grep -Pzo -Pzo "(?s)[ ]+\-$o.*?\.\n")
 		printf "%s" "$men"
-		echo
 
 	elif [[ $1 == "help" ]]; then
 		halp=$($commnd --help 2>/dev/null | grep -P "^[ ]+-$opts" | xargs)
@@ -83,7 +82,14 @@ seek () {
 }
 
 if [[ $LONG == "true" ]]; then
-	seek "man"
+	men=$(seek "man")
+	if [[ -z $men ]]; then
+		echo "No information available"
+	else
+		echo $men
+		echo 
+	fi
+	
 else
 	halp=$(seek "help")
 	if [[ -z $halp ]]; then
