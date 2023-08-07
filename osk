@@ -15,7 +15,7 @@ if [[ ${#} -eq 0 ]]; then
 fi
 
 optstring=":lsh"
-LONG='false'
+LONG='both'
 
 while getopts ${optstring} arg; do
 	case ${arg} in
@@ -43,7 +43,7 @@ shift $((OPTIND - 1))  # ${@} contains the non-option arg
 read -ra seek <<< $1
 commnd=${seek[0]}
 opts=$(sed "s/-//g" <<< ${seek[1]})
-#echo "command: $commnd, options: $opts"
+echo "command: $commnd, options: $opts"
 
 # gets the option description
 seek () {
@@ -81,26 +81,16 @@ seek () {
 	fi
 }
 
-if [[ $LONG == "true" ]]; then
-	men=$(seek "man")
-	if [[ -z $men ]]; then
-		echo "No information available"
-	else
-		echo $men
-		echo 
-	fi
-	
-else
+if [[ $LONG == "false" ]] || [[ $LONG == "both" ]]; then
 	halp=$(seek "help")
 	if [[ -z $halp ]]; then
 		h=$(seek "h")
-		if [[ -z $h ]]; then
-			echo "No information available"
-		else
-			echo $h
-		fi
+		{ [[ -z $h ]] && echo "No information available" &&	exit 2; } || { echo $h && exit 0; }
 	else
 		echo $halp
 	fi
+elif [[ $LONG == "true" ]] || [[ $LONG == "both" ]]; then
+	men=$(seek "man")
+	{ [[ -z $men ]] && echo "No information available" &&	exit 2; } || { echo $men && exit 0; }
 fi
 
