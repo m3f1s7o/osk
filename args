@@ -1,0 +1,55 @@
+#! /bin/bash
+
+usage () {
+	echo "Usage: $(basename $0) [-lsh] 'command -x'" 2>&1
+	echo "Seek information about command options"
+	echo
+	echo " -l long answer"
+	echo " -s short answer (default)"
+	echo " -h display this message"
+}
+
+if [[ ${#} -eq 0 ]]; then
+	usage
+	exit 1
+fi
+
+optstring=":lsh"
+LONG='false'
+
+while getopts ${optstring} arg; do
+	case ${arg} in
+		l)
+			echo "Long option"
+			;;
+		s) 
+			echo "Short option"
+			;;
+		h)
+			usage
+			exit 0
+			;;
+		?)
+			echo "Invalid option: -${OPTARG}."
+			echo
+			usage
+			exit 1
+			;;
+	esac
+done
+
+shift $((OPTIND - 1))  # ${@} contains the non-option arg
+
+commnd=$1
+read -ra opts <<< $(sed "s/\-/\\\-/g" <<< ${@:2})
+echo "comm: $commnd"
+echo "opts: ${opts[@]}"
+echo "size: ${#opts[@]}"
+echo "size: ${#opts}"
+
+for i in $(seq 0 $(( ${#opts[@]} -1 )));do
+	echo "$i: ${opts[$i]}"
+done
+
+#echo "args: ${@}"
+#echo "commnd: $1, options: $2, 2opt: $3"
