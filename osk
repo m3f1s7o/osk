@@ -1,5 +1,7 @@
 #! /bin/bash
 
+# Seeks the description of the given command options
+
 usage () {
 	echo "Usage: $(basename $0) [-lsh] 'command -x'" 2>&1
 	echo "Seek information about command options"
@@ -9,23 +11,41 @@ usage () {
 	echo " -h display this message"
 }
 
-# gets the short option description 
+#######################################
+# Seeks the option description using --help o -h
+# Globals:
+#   COMMAND
+# Arguments:
+#   option
+# Returns:
+# 	Command description in short format
+#######################################
 seek_short () {
-	local opt
-	opt=$2
+	local option
+	option=$2
+
 	if [[ $1 == "help" ]]; then
-		$COMMAND --help 2>/dev/null | grep -P "^[ ]+$opt"
+		$COMMAND --help 2>/dev/null | grep -P "^[ ]+$option"
 	elif [[ $1 == "h" ]]; then
-		$COMMAND -h 2>/dev/null | grep -P "^[ ]+$opt"
+		$COMMAND -h 2>/dev/null | grep -P "^[ ]+$option"
 	fi
 }
 
+#######################################
+# Seeks the option description using man pages
+# Globals:
+#   COMMAND
+# Arguments:
+#   option
+# Returns:
+# 	Command description in large format
+#######################################
 seek_long () {
-	local opt
-	opt=$1
+	local option
+	option=$1
 
-	# if the man page of the command has a OPTION section, use it as beginning of the search
-	# otherwise use DESCRIPTION
+	# if the man page of the command has a OPTION section, use it as beginning
+	# of the search, otherwise use DESCRIPTION
 	man $COMMAND | grep -P "^OPTIONS$" &>/dev/null
 	if [[ $? -eq 0 ]]; then
 		ceil="OPTIONS"
@@ -33,48 +53,50 @@ seek_long () {
 		ceil="DESCRIPTION"
 	fi
 
-	#read -ra bounds <<< $(man $COMMAND | grep -P "^[A-Z ]+$" | grep $begin -A 1 | xargs)
-	# gets the end of the wanted_section selection wherein the search is going to be
-	floor=$(man $COMMAND | grep -P "^[A-Z ]+$" | grep $ceil -A 1 | tail -n 1 | xargs)
-	#echo "bounds: $ceil, $floor"
+	# Gets the end of the wanted_section selection wherein the search
+	# is going to be
+	floor=$(man $COMMAND \
+	  | grep -P "^[A-Z ]+$" \
+	  | grep $ceil -A 1 \
+	  | tail -n 1 | xargs)
 
-	# extract from the man page only the section that contains the options descriptions
-	# then chops it leaving at the top the option passed
+	# Extract from the man page only the section that contains the options
+	# descriptions then chops it leaving at the top the option passed
 	# and removes the last line that contains the following option
-	wanted_section=$(man $COMMAND | awk "/^$ceil$/,/^$floor$/" | awk "/^[ ]+$opt/,/^$floor/" | head -n -1)
-	#echo "$wanted_section"
+	wanted_section=$(man $COMMAND \
+	  | awk "/^$ceil$/,/^$floor$/" \
+	  | awk "/^[ ]+$option/,/^$floor/" \
+	  | head -n -1)
 
-	# gets the minimum identation, that is the identation of the current option, in order to get all its description
-	# a smaller identation means a description of something else
-	# X tried to get the description by delimiting by opitions (as with ceil and floor) but with some options it did't work properly
-	min_identation=$(printf "%s" "$wanted_section" | grep -P "^[ ]+$opt" | head -n 1 | tr " " "*" | cut -d "-" -f 1 | wc -c)
-	#echo "identation: $min_identation"
+	# Gets the minimum identation, that is the identation of the current option,
+	# in order to get all its description. A smaller identation means a 
+	# description of something else
+	# NOT WORKED:
+	#   1. tried to get the description by delimiting by opitions
+	#     (as with ceil and floor) but with some options it did't work properly
+	min_identation=$(printf "%s" "$wanted_section" \
+	  | grep -P "^[ ]+$option" \
+	  | head -n 1 \
+	  | tr " " "*" \
+	  | cut -d "-" -f 1 \
+	  | wc -c)
 
-	#tail -n +2 <<< $wanted_section
 	description=$(head -n 1 <<< $wanted_section)
 	end=""
-	# go line by line checking identation
+	# Go line by line checking identation
 	while IFS= read -r line; do
 		ident=0
-		# replaces spaces by * in order to count them and get the line's identation
+		# Replaces spaces by * in order to count them and get the line's identation
 		modified_line=$(tr " " "*" <<< $line)
-		#echo "modified_line line: $modified_line"
 		for (( i=0; i<${#modified_line}; i++ )); do
-			# count the * that represent identation
-			# MODIFY make one liner
-			if [[ "${modified_line:$i:1}" == "*" ]]; then
-				((ident+=1))
-			else
-				break
-			fi
+			# Only count the * that represent identation
+			{ [[ "${modified_line:$i:1}" == "*" ]] && ((ident+=1)); } || break
 		done
 
-		# finds the end of the description by finding the line in which the identation is smaller than the min_identation
-		# if it's an empty line does not count it, but don't take as end either
+		# Finds the end of the description by finding the line in which the
+		# identation is smaller than the min_identation
+		# If it's an empty line does not count it, but don't take as end either
 		if [[ $ident -gt $min_identation ]]; then
-			#echo "add: $line"
-			#desc="${desc}$(echo $line)"
-			# escape all possible problematic characters to use it with awk
 			end=$(sed 's/[-.\\\[{}()*+?\\^$|\/#]/\\&/g' <<< $line)
 		elif [[ $ident -eq 0 ]]; then
 			continue
@@ -82,15 +104,13 @@ seek_long () {
 			break
 		fi
 	done <<< "$(tail -n +2 <<< $wanted_section)"  # pass each line but the wanted option
-	#echo "end: $end"
-	# $end$ caused problems on sudo -l
-	#man $COMMAND | awk "/^[ ]+-$opt/, /$end$/"
-	# awk cuts the output from man with the desired option as beggining and the end of its description
-	man $COMMAND | awk "/^[ ]+$opt/, /$end/"
+	man $COMMAND | awk "/^[ ]+$option/, /$end/"
 }
 
 
-##################################################################################################################
+###############################################################################
+# Body
+###############################################################################
 
 if [[ ${#} -eq 0 ]]; then
 	usage
@@ -100,8 +120,10 @@ fi
 optstring=":lsh"
 # Three possible options for LONG_OPT:
 # true (-l) -> seeks given options within manual pages
-# false (-s) -> seeks given options using --help or -h (if the first one fails) of the specified command
-# both (default) -> first seeks using --help, if it fails, it uses -h, if it also fails, tries with man
+# false (-s) -> seeks given options using --help or -h (if the first one fails)
+#   of the specified command
+# both (default) -> first seeks using --help, if it fails, it uses -h,
+#   if it also fails, tries with man
 LONG_OPT='both'
 
 while getopts ${optstring} arg; do
@@ -126,27 +148,30 @@ while getopts ${optstring} arg; do
 done
 
 shift $((OPTIND - 1))  # ${@} contains the non-option arg
-
 COMMAND=$1
-read -ra opts <<< $(sed "s/\-/\\\-/g" <<< ${@:2})  # gets each option passed with dashed scaped \-
-#echo "command: $COMMAND, options: ${opts[@]}"
+# gets each option passed with dashed scaped \-
+read -ra options <<< $(sed "s/\-/\\\-/g" <<< ${@:2})
+#echo "command: $COMMAND, options: ${options[@]}"
 
 # ---
-# Calls the corresponding option to seek the information
+# Seeks all the options
 # ---
-if [[ $LONG_OPT == "false" ]] || [[ $LONG_OPT == "both" ]]; then
-	help_output=$(seek_short "help" "$opts")
-	if [[ -z $help_output ]]; then
-		h_output=$(seek_short "h" "$opts")
-		# if empty $h_output when short option, exit 2
-		# if $h_output not empty and $LONG_OPT is both, echo $h_output
-		# else, do nothing and let the program go to seek using man
-		{ [[ -z $h_output ]] && [[ "$LONG_OPT" == "false" ]] && echo "No information available" && exit 2; } || { [["$LONG_OPT" == "both" ]] && printf "%s" "$h_output" && exit 0; }
-	else
-		printf "%s" "$help_output"
+# TODO: change tests cases for conditionals
+for option in ${options[@]}; do
+	if [[ $LONG_OPT == "false" ]] || [[ $LONG_OPT == "both" ]]; then
+		help_output=$(seek_short "help" "$option")
+		if [[ -z $help_output ]]; then
+			h_output=$(seek_short "h" "$option")
+			# if empty $h_output when short option, exit 2
+			# if $h_output not empty and $LONG_OPT is both, echo $h_output
+			# else, do nothing and let the program go to seek using man
+			{ [[ -z $h_output ]] && [[ "$LONG_OPT" == "false" ]] && echo "No information available" && exit 2; } || { [["$LONG_OPT" == "both" ]] && printf "%s" "$h_output" && echo && exit 0; }
+		else
+			printf "%s" "$help_output"
+			echo 
+		fi
+	elif [[ $LONG_OPT == "true" ]] || [[ $LONG_OPT == "both" ]]; then
+		man_output=$(seek_long $option)
+		{ [[ -z $man_output ]] && echo "No information available" && exit 2; } || { printf "%s" "$man_output" && echo && exit 0; }
 	fi
-elif [[ $LONG_OPT == "true" ]] || [[ $LONG_OPT == "both" ]]; then
-	man_output=$(seek_long $opts)
-	{ [[ -z $man_output ]] && echo "No information available" && exit 2; } || { printf "%s" "$man_output" && exit 0; }
-fi
-
+done
