@@ -3,12 +3,15 @@
 # Seeks the description of the given command options
 
 usage () {
-	echo "Usage: $(basename $0) [-lsh] 'command -x'" 2>&1
+	echo "Usage: $(basename $0) [OPTION]... [COMMAND] [COMMAND OPTIONS]..." 2>/dev/null 
 	echo "Seek information about command options"
+	echo "Example: $(basename $0) -l grep -E -P" 
 	echo
 	echo " -l long answer"
 	echo " -s short answer (default)"
 	echo " -h display this message"
+	echo
+	echo "Command options must be separated (example: -a -b --auth ...)."
 }
 
 #######################################
@@ -18,16 +21,23 @@ usage () {
 # Arguments:
 #   option
 # Returns:
-# 	Command description in short format
+# 	Command description in short format if found
+# 	Code 2 if not found
 #######################################
 seek_short () {
 	local option
-	option=$2
+	option=$1
 
-	if [[ $1 == "help" ]]; then
-		$COMMAND --help 2>/dev/null | grep -P "^[ ]+$option"
-	elif [[ $1 == "h" ]]; then
-		$COMMAND -h 2>/dev/null | grep -P "^[ ]+$option"
+	# Tries to get the option information, first with --help,
+	# then with -h. If something is found, prints the ouput.
+	# If nothing found exits with 2
+	help_output=$($COMMAND --help 2>/dev/null | grep -P "^[ ]+$option")
+	if [[ $? -ne 0 ]]; then
+		h_output=$($COMMAND -h 2>/dev/null | grep -P "^[ ]+$option")
+		{ [[ $? -ne 0 ]] && exit 2; } \
+		|| printf "%s" "$h_output";
+	else
+		printf "%s" "$help_output"
 	fi
 }
 
@@ -38,7 +48,8 @@ seek_short () {
 # Arguments:
 #   option
 # Returns:
-# 	Command description in large format
+# 	Command description in large format if found
+# 	Code 2 if not found
 #######################################
 seek_long () {
 	local option
@@ -104,7 +115,11 @@ seek_long () {
 			break
 		fi
 	done <<< "$(tail -n +2 <<< $wanted_section)"  # pass each line but the wanted option
-	man $COMMAND | awk "/^[ ]+$option/, /$end/"
+	long_desc=$(man $COMMAND | awk "/^[ ]+$option/, /$end/")
+
+	{ [[ $? -ne 0 ]] && exit 2; } \
+	|| printf "%s" "$long_desc"
+
 }
 
 
@@ -149,29 +164,27 @@ done
 
 shift $((OPTIND - 1))  # ${@} contains the non-option arg
 COMMAND=$1
-# gets each option passed with dashed scaped \-
+# gets each option passed, with dashed scaped \-
 read -ra options <<< $(sed "s/\-/\\\-/g" <<< ${@:2})
 #echo "command: $COMMAND, options: ${options[@]}"
 
 # ---
-# Seeks all the options
+# Loop through all the options to obtain its information
 # ---
-# TODO: change tests cases for conditionals
 for option in ${options[@]}; do
 	if [[ $LONG_OPT == "false" ]] || [[ $LONG_OPT == "both" ]]; then
-		help_output=$(seek_short "help" "$option")
-		if [[ -z $help_output ]]; then
-			h_output=$(seek_short "h" "$option")
-			# if empty $h_output when short option, exit 2
-			# if $h_output not empty and $LONG_OPT is both, echo $h_output
-			# else, do nothing and let the program go to seek using man
-			{ [[ -z $h_output ]] && [[ "$LONG_OPT" == "false" ]] && echo "No information available" && exit 2; } || { [["$LONG_OPT" == "both" ]] && printf "%s" "$h_output" && echo && exit 0; }
-		else
-			printf "%s" "$help_output"
-			echo 
-		fi
+		seek_short "$option"
+		{ [[ $? -ne 0 ]] \
+		&& echo "Nothing found" \
+		&& exit 2; } \
+		|| echo 
+
 	elif [[ $LONG_OPT == "true" ]] || [[ $LONG_OPT == "both" ]]; then
-		man_output=$(seek_long $option)
-		{ [[ -z $man_output ]] && echo "No information available" && exit 2; } || { printf "%s" "$man_output" && echo && exit 0; }
+		seek_long "$option"
+		{ [[ $? -ne 0 ]] \
+		&& echo "Nothing found" \
+		&& exit 2; } \
+		|| echo 
 	fi
 done
+
