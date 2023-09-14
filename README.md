@@ -2,6 +2,8 @@
 Bash tool to seek information about commands options. It searches the `man pages` or the `--help` output for the specified option.
 
 ## Install
+The installation will put the `osk` script on the `~/.local/bin/` directory.
+
 ```shell-session
 $ cd
 $ git clone https://github.com/m3f1s7o/osk
@@ -12,18 +14,22 @@ $ ./install
 
 ## Usage
 ```shell-session
-$ osk "command -x"
+$ osk [command] -[option1] -[option2] -[optionX]
 ```
+> The options must be **separated**. The script is able to seek information for long or short options (`-o` or `--option`).
+
 ## Options
 
 ### short `-s` (default)
 
 Seeks the specified option using the `--help` or `-h` option of the argument command.
 
-![image](https://github.com/m3f1s7o/osk/assets/65306021/a655be3f-4092-4b8e-964d-7afc69f55e38)
+![image](https://github.com/m3f1s7o/osk/assets/65306021/52e105f3-7837-48cc-a68d-feb1bc338a25)
 
 ### long `-l`
 
-Seeks the specified option in the `man page` of the argument command.
+Seeks the specified option using the `man page` of the argument command.
 
-![image](https://github.com/m3f1s7o/osk/assets/65306021/90dc0e35-561a-42eb-abbc-4f23190e76be)
+![image](https://github.com/m3f1s7o/osk/assets/65306021/d1d95a69-b3f9-4f34-bb69-edae90dd44f7)
+
+
