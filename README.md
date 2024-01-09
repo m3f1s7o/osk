@@ -32,4 +32,14 @@ Seeks the specified option using the `man page` of the argument command.
 
 ![image](https://github.com/m3f1s7o/osk/assets/65306021/d1d95a69-b3f9-4f34-bb69-edae90dd44f7)
 
+---
+# To add
+
+- [x] If no osk option specified, first search help, if not found, go to man pages.
+
+# Bugs
+
+- [ ] Option is listed besides another (`osk -l cp -r` -> `-R, -r, --recursive`)
+- [ ] If just `-` is introduced as option, all options are printed (`osk -l ls - l`)
+- [ ] `find` command options
 

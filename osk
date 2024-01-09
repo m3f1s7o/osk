@@ -30,11 +30,11 @@ seek_short () {
 
 	# Tries to get the option information, first with --help,
 	# then with -h. If something is found, prints the ouput.
-	# If nothing found exits with 2
+	# If nothing found returns 2
 	help_output=$($COMMAND --help 2>/dev/null | grep -P "^[ ]+$option")
 	if [[ $? -ne 0 ]]; then
 		h_output=$($COMMAND -h 2>/dev/null | grep -P "^[ ]+$option")
-		{ [[ $? -ne 0 ]] && exit 2; } \
+		{ [[ $? -ne 0 ]] && return 2; } \
 		|| printf "%s" "$h_output";
 	else
 		printf "%s" "$help_output"
@@ -172,18 +172,26 @@ read -ra options <<< $(sed "s/\-/\\\-/g" <<< ${@:2})
 # Loop through all the options to obtain its information
 # ---
 for option in ${options[@]}; do
-	if [[ $LONG_OPT == "false" ]] || [[ $LONG_OPT == "both" ]]; then
+	no_luck=$(echo "No luck for $option" | sed "s/\\\//g")
+	if [[ $LONG_OPT == "both" ]]; then
+		seek_short "$option"
+		if [[ $? -ne 0 ]]; then
+			seek_long "$option"
+			if [[ $? -ne 0 ]]; then
+				echo $no_luck
+			fi
+		fi
+
+	elif [[ $LONG_OPT == "false" ]]; then
 		seek_short "$option"
 		{ [[ $? -ne 0 ]] \
-		&& echo "Nothing found" \
-		&& exit 2; } \
+		&& echo $no_luck; } \
 		|| echo 
 
-	elif [[ $LONG_OPT == "true" ]] || [[ $LONG_OPT == "both" ]]; then
+	elif [[ $LONG_OPT == "true" ]]; then
 		seek_long "$option"
 		{ [[ $? -ne 0 ]] \
-		&& echo "Nothing found" \
-		&& exit 2; } \
+		&& echo $no_luck; } \
 		|| echo 
 	fi
 done
